@@ -44,18 +44,18 @@ void drawParticle2D(double x_window, double y_window,
 void drawOctreeBounds2D(TreeNode node) {
     
     
-    printf("drawing lines! node %d\n", node.key);
-    print_node(node);
+    //printf("drawing lines! node %d\n", node.key);
+    //print_node(node);
     glBegin(GL_LINE_LOOP);
     // set the color of lines to be white
     glColor3f(1.0f, 1.0f, 1.0f);
     // specify the start point's coordinates
-    glVertex2f(node.minX, node.minY);
+    glVertex2f(2*node.minX/MAX_X-1, 2*node.minY/MAX_Y-1);
     // specify the end point's coordinates
-    glVertex2f(node.maxX, node.minY);
+    glVertex2f(2*node.maxX/MAX_X-1, 2*node.minY/MAX_Y-1);
     // do the same for verticle line
-    glVertex2f(node.maxX, node.maxY);
-    glVertex2f(node.minX, node.maxY);
+    glVertex2f(2*node.maxX/MAX_X-1, 2*node.maxY/MAX_Y-1);
+    glVertex2f(2*node.minX/MAX_X-1, 2*node.maxY/MAX_Y-1);
     glEnd();
 
 }

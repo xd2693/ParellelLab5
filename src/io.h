@@ -11,6 +11,6 @@ void read_file(struct options_t* args,
                double***             output_vals);
 
 void write_file(struct options_t*         args,
-                struct prefix_sum_args_t* opts);
+                double** output, int n_vals);
 
 #endif

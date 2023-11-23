@@ -4,7 +4,7 @@ using namespace std;
 
 void tree_construct(unordered_map<int, struct TreeNode>& tree, double** particles, int n_val){
     //unordered_map<int, struct TreeNode> tree;
-    struct TreeNode root = {0, 0, 0, MAX_X, MAX_Y, true, particles[0][0], particles[0][1], particles[0][2], 0};
+    struct TreeNode root = {0, MIN_X, MIN_Y, MAX_X, MAX_Y, true, particles[0][0], particles[0][1], particles[0][2], 0};
     tree.insert(make_pair(0, root));
     for (int i = 1; i < n_val; i++){
         insert_node(tree, particles, i, 0);
@@ -55,12 +55,10 @@ void insert_node(unordered_map<int, struct TreeNode>& tree, double** particles, 
     }
 }
 
-
-
 int find_child(unordered_map<int, struct TreeNode>& tree, double** particles, int index, int key){
     double minX, minY, maxX, maxY;
     //printf("find child\n");
-    for (int i = 1; i<=4; i++){
+    for (int i = 1; i <= 4; i++){
         int child_key = key * 4 + i;
         switch (i){
             case 1:
@@ -108,4 +106,58 @@ int find_child(unordered_map<int, struct TreeNode>& tree, double** particles, in
 void print_node(struct TreeNode node){
     printf("key %d; minX %f; minY %f; maxX %f; maxY %f; isExtern %d; cordX %f; cordY %f; mass %f; index %d \n",
     node.key, node.minX, node.minY, node.maxX, node.maxY, node.isExternal,  node.cordX, node.cordY, node.mass, node.index);
+}
+
+void new_position(unordered_map<int, struct TreeNode>& tree, double** particles, int n_val, double threshold, double dt){
+    for (int i = 0; i < n_val; i++){
+        double Fx, Fy, ax, ay;
+        tie(Fx, Fy) = get_force(tree, particles[i], 0, threshold);
+        ax = Fx / particles[i][2];
+        ay = Fy / particles[i][2];
+        particles[i][3] += ax * dt;
+        particles[i][4] += ay * dt;
+        particles[i][0] += particles[i][3] * dt + 0.5 * ax * dt * dt;
+        particles[i][1] += particles[i][4] * dt + 0.5 * ay * dt * dt;
+        particles[i][2] = check_boundary(particles[i]) ? particles[i][2] : -1;
+    }
+}
+
+tuple<double, double> get_force(unordered_map<int, struct TreeNode>& tree, double* particle, int key, double threshold){
+    double cordX, cordY, d, Fx = 0, Fy = 0;
+    if (tree[key].isExternal){
+        cordX = tree[key].cordX;
+        cordY = tree[key].cordY;
+        double d = sqrt((particle[0]-cordX)*(particle[0]-cordX)+(particle[1]-cordY)*(particle[1]-cordY));
+        d = (d < rlimit) ? rlimit : d;
+        Fx = G * particle[2] * tree[key].mass * (cordX - particle[0]) / (d*d*d);
+        Fy = G * particle[2] * tree[key].mass * (cordY - particle[1]) / (d*d*d);
+        
+    }else{
+        cordX = tree[key].cordX / tree[key].mass;
+        cordY = tree[key].cordY / tree[key].mass;
+        d = sqrt((particle[0]-cordX)*(particle[0]-cordX)+(particle[1]-cordY)*(particle[1]-cordY));
+        if ((tree[key].maxX-tree[key].minX)/d < threshold){
+            Fx = G * particle[2] * tree[key].mass * (cordX - particle[0]) / (d*d*d);
+            Fy = G * particle[2] * tree[key].mass * (cordY - particle[1]) / (d*d*d);
+            
+        }else{
+            for (int i = 1; i <=4; i++){
+                int child_key = key * 4 + i;
+                if (tree.find(child_key) == tree.end())
+                    continue;
+                double fx, fy;
+                tie(fx, fy) = get_force(tree, particle, child_key, threshold);
+                Fx += fx;
+                Fy += fy;
+            }
+            
+        }
+    }
+    return make_tuple(Fx, Fy);
+}
+
+bool check_boundary(double* particle){
+    if (particle[0] >= MIN_X && particle[0] <= MAX_X && particle[1] >= MIN_Y && particle[1] <= MAX_Y)
+        return true;
+    return false;
 }
