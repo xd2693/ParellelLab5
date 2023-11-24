@@ -19,6 +19,7 @@ using namespace std;
     extern vector<pair<double, double>> force;
     extern vector<pair<double, double>> debug_force;
     extern vector<pair<double, double>> position;
+    extern vector<pair<double, double>> new_pos;
     extern vector<pair<double, double>> velocity;
     extern vector<double> mass;
 #endif
@@ -48,7 +49,7 @@ void print_node(struct TreeNode node);
 
 void new_position(unordered_map<uint64_t, struct TreeNode>& tree, double** particles, int n_val, double threshold, double dt);
 
-tuple<double, double> get_force(unordered_map<uint64_t, struct TreeNode>& tree, double* particle, uint64_t key, double threshold);
+tuple<double, double> get_force(unordered_map<uint64_t, struct TreeNode>& tree, double* particle, uint64_t key, double threshold, int index);
 
 bool check_boundary(double* particle);
 

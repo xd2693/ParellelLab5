@@ -13,6 +13,7 @@ using namespace std;
     vector<pair<double, double>> force;
     vector<pair<double, double>> debug_force;
     vector<pair<double, double>> position;
+    vector<pair<double, double>> new_pos;
     vector<pair<double, double>> velocity;
     vector<double> mass;
 #endif
@@ -30,6 +31,7 @@ void run_seq(struct options_t opts, double** input, int n_vals){
     for (int i = 0; i< opts.n_steps; i++){
         unordered_map<uint64_t, struct TreeNode> tree;
         tree_construct(tree, input, n_vals);
+        printf("Step %d tree done\n", i);
         if(opts.visual){
             glClear( GL_COLOR_BUFFER_BIT );
             for (auto const &pair : tree){
@@ -43,18 +45,25 @@ void run_seq(struct options_t opts, double** input, int n_vals){
         
         new_position(tree, input, n_vals, opts.theta, opts.time_step);
         #ifdef DEBUG
-        double dfx=0, dfy=0, dp=0;
+        double dfx=0, dfy=0, dp=0, dfxp = 0, dfyp = 0;
             for (int j = 0; j < n_vals; j++){
-                dfx += pow((debug_force[j].first - force[j].first),2);
-                dfy += pow((debug_force[j].second - force[j].second),2);
+                double ddfx = debug_force[j].first - force[j].first;
+                double debug_fx_p = fabs(ddfx/debug_force[j].first);
+                dfxp += debug_fx_p;
+                dfx += (ddfx * ddfx);
+                double ddfy = (debug_force[j].second - force[j].second);
+                double debug_fy_p = fabs(ddfy/debug_force[j].second);
+                dfyp += debug_fy_p;
+                dfy += (ddfy * ddfy);
                 dp += pow((position[j].first - input[j][0]),2) + pow((position[j].second - input[j][1]),2);       
-                
+                // if (debug_fx_p > 0.0 || debug_fy_p > 0.0)
+                    // printf("Point %d error %f%% %f%%\n", j, debug_fx_p*100, debug_fy_p*100);
             }
             dfx = sqrt(dfx / n_vals);
             dfy = sqrt(dfy / n_vals);
             dp = sqrt(dp / n_vals);
 
-            printf("step %d: dfx = %f, dfy = %f, dp = %f\n", i+1, dfx, dfy, dp);
+            printf("step %d: dfx = %f, dfy = %f, dp = %f dfxp = %f, dfyp = %f\n", i+1, dfx, dfy, dp, dfxp, dfyp);
         #endif
     }
        
@@ -81,14 +90,15 @@ int main(int argc, char **argv){
         for(int i = 0; i< n_vals; i++){
             memcpy(output_vals[i], input_vals[i], sizeof(double) * 5);
             #ifdef DEBUG
-                position.push_back(make_pair(output_vals[i][0], output_vals[i][1]));
+                position.push_back(pair<double, double>(output_vals[i][0], output_vals[i][1]));
+                new_pos.push_back(pair<double, double>(output_vals[i][0], output_vals[i][1]));
+                //printf("DEBUG point %d %.10f %.10f %.10f %.10f\n", i, output_vals[i][0], output_vals[i][1], position.back().first, position.back().second);
                 force.push_back(make_pair(0,0));
                 debug_force.push_back(make_pair(0,0));
                 velocity.push_back(make_pair(0,0));
                 mass.push_back(output_vals[i][2]);
             #endif
-        }
-        
+        }      
     }
     if (size == 1 )
         run_seq(opts, output_vals, n_vals);

@@ -1,7 +1,7 @@
 #include <barneshut.h>
 using namespace std;
 
-
+static int points_checked;
 
 void tree_construct(unordered_map<uint64_t, struct TreeNode>& tree, double** particles, int n_val){
     //unordered_map<int, struct TreeNode> tree;
@@ -120,41 +120,45 @@ void print_node(struct TreeNode node){
 }
 
 void new_position(unordered_map<uint64_t, struct TreeNode>& tree, double** particles, int n_val, double threshold, double dt){
+    points_checked = 0;
     for (int i = 0; i < n_val; i++){
         double Fx, Fy, ax, ay;
 
+        if (particles[i][2] < 0)
+            continue;
+        
+        tie(Fx, Fy) = get_force(tree, particles[i], 0, threshold, i);
         #ifdef DEBUG
-            if (mass[i] > 0){
+            force[i] = (make_pair(Fx,Fy));
+            if (mass[i] > -0.1){
                 double fx = 0, fy = 0;
                 for (int j = 0; j < n_val; j++){
-                    if (j == i)
-                        continue;
-                    if (particles[j][2] < 0)
-                        continue;
-                    double d = sqrt(pow((position[j].first - position[i].first), 2)+pow((position[j].second - position[i].second), 2));                
-                    d = (d < rlimit) ? rlimit : d;
-                    fx += G*mass[j]*mass[i]*(position[j].first - position[i].first)/(d*d*d);
-                    fy += G*mass[j]*mass[i]*(position[j].second - position[i].second)/(d*d*d);
+                    double lfx, lfy;
+                    double d = 0.0;
+                    if (j == i) {lfx = 0.0; lfy = 0.0;}
+                    else { 
+                        //double dx = position[j].first - position[i].first;
+                        //double dy = position[j].second - position[i].second;
+                        d = sqrt((position[j].first - position[i].first)*(position[j].first - position[i].first) + (position[j].second - position[i].second)*(position[j].second - position[i].second));                
+                        d = (d < rlimit) ? rlimit : d;
+                        
+                        lfx = G * mass[j] * mass[i] * (position[j].first - position[i].first)/(d*d*d);
+                        lfy = G * mass[j] * mass[i] * (position[j].second - position[i].second)/(d*d*d);
+                        fx += lfx;
+                        fy += lfy;
+                    }
+                    //printf("DEBUG %d to %d force %.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f\n", j, i, lfx, lfy, d, position[j].first - position[i].first, position[j].second - position[i].second, position[j].first, position[i].first, position[j].second, position[i].second );
                 }
                 debug_force[i] = (make_pair(fx,fy));
                 ax = fx / particles[i][2];
                 ay = fy / particles[i][2];   
                 velocity[i].first += ax * dt;
                 velocity[i].second += ay * dt;
-                position[i].first += velocity[i].first * dt + 0.5 * ax * dt * dt;
-                position[i].second += velocity[i].second * dt + 0.5 * ay * dt * dt;
+                new_pos[i].first += velocity[i].first * dt + 0.5 * ax * dt * dt;
+                new_pos[i].second += velocity[i].second * dt + 0.5 * ay * dt * dt;
                 double checkpoint[2] ={position[i].first, position[i].second};
                 mass[i] = check_boundary(checkpoint) ? mass[i] : -1;
             }
-            
-        #endif
-
-        if (particles[i][2] < 0)
-            continue;
-        
-        tie(Fx, Fy) = get_force(tree, particles[i], 0, threshold);
-        #ifdef DEBUG
-            force[i] = (make_pair(Fx,Fy));
             
         #endif
         ax = Fx / particles[i][2];
@@ -165,17 +169,32 @@ void new_position(unordered_map<uint64_t, struct TreeNode>& tree, double** parti
         particles[i][1] += particles[i][4] * dt + 0.5 * ay * dt * dt;
         particles[i][2] = check_boundary(particles[i]) ? particles[i][2] : -1;
     }
+    #ifdef DEBUG
+        for (int i = 0; i < n_val; i++){
+            position[i].first = new_pos[i].first;
+            position[i].second = new_pos[i].second;
+        }
+    #endif
+    printf("Points checked %d\n", points_checked);
 }
 
-tuple<double, double> get_force(unordered_map<uint64_t, struct TreeNode>& tree, double* particle, uint64_t key, double threshold){
-    double cordX, cordY, d, Fx = 0, Fy = 0;
+tuple<double, double> get_force(unordered_map<uint64_t, struct TreeNode>& tree, double* particle, uint64_t key, double threshold, int index){
+    double cordX = 0.0, cordY = 0.0, d, Fx = 0, Fy = 0;
     if (tree[key].isExternal){
-        cordX = tree[key].cordX;
-        cordY = tree[key].cordY;
-        d = sqrt((particle[0]-cordX)*(particle[0]-cordX)+(particle[1]-cordY)*(particle[1]-cordY));
-        d = (d < rlimit) ? rlimit : d;
-        Fx = G * particle[2] * tree[key].mass * (cordX - particle[0]) / (d*d*d);
-        Fy = G * particle[2] * tree[key].mass * (cordY - particle[1]) / (d*d*d);
+        if (index == tree[key].index)
+        {
+            Fx = 0;
+            Fy = 0;
+        } else {
+            cordX = tree[key].cordX;
+            cordY = tree[key].cordY;
+            d = sqrt((particle[0]-cordX)*(particle[0]-cordX)+(particle[1]-cordY)*(particle[1]-cordY));
+            d = (d < rlimit) ? rlimit : d;
+            Fx = G * particle[2] * tree[key].mass * (cordX - particle[0]) / (d*d*d);
+            Fy = G * particle[2] * tree[key].mass * (cordY - particle[1]) / (d*d*d);
+            points_checked++;
+        }
+        //printf("%d to %d force %.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f\n", tree[key].index, index, Fx, Fy, d, cordX - particle[0], cordY - particle[1], cordX, particle[0], cordY, particle[1]);
         
     }else{
         cordX = tree[key].cordX / tree[key].mass;
@@ -184,7 +203,7 @@ tuple<double, double> get_force(unordered_map<uint64_t, struct TreeNode>& tree, 
         if ((tree[key].maxX-tree[key].minX)/d < threshold){
             Fx = G * particle[2] * tree[key].mass * (cordX - particle[0]) / (d*d*d);
             Fy = G * particle[2] * tree[key].mass * (cordY - particle[1]) / (d*d*d);
-            
+            points_checked++;
         }else{
             uint16_t layer = tree[key].layer + 1; 
             uint32_t index_in_layer = tree[key].index_in_layer;
@@ -196,7 +215,7 @@ tuple<double, double> get_force(unordered_map<uint64_t, struct TreeNode>& tree, 
                 if (tree.find(child_key) == tree.end())
                     continue;
                 double fx, fy;
-                tie(fx, fy) = get_force(tree, particle, child_key, threshold);
+                tie(fx, fy) = get_force(tree, particle, child_key, threshold, index);
                 Fx += fx;
                 Fy += fy;
             }
