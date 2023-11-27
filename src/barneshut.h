@@ -48,14 +48,15 @@ struct TreeNode {
     int index;
 };
 
-void tree_construct(unordered_map<uint64_t, struct TreeNode>& tree, vector<particle> particles, int n_val);
+void tree_construct(unordered_map<uint64_t, struct TreeNode>& tree, const vector<particle>& particles, int n_val);
 
-void insert_node(unordered_map<uint64_t, struct TreeNode>& tree, vector<particle> particles, int index, uint64_t key);
+void insert_node(unordered_map<uint64_t, struct TreeNode>& tree, const vector<particle>& particles, int index, uint64_t key);
 
 tuple<uint64_t, int> find_child(unordered_map<uint64_t, struct TreeNode>& tree, particle p, uint64_t key);
 
 
 void print_node(struct TreeNode node);
+void print_particle(struct particle p);
 
 void new_position(unordered_map<uint64_t, struct TreeNode>& tree, vector<particle>& particles, int n_val, double threshold, double dt);
 

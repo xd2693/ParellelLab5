@@ -3,22 +3,25 @@ using namespace std;
 
 static int points_checked;
 
-void tree_construct(unordered_map<uint64_t, struct TreeNode>& tree, vector<particle> particles, int n_val){
+void tree_construct(unordered_map<uint64_t, struct TreeNode>& tree, const vector<particle>& particles, int n_val){
     //unordered_map<int, struct TreeNode> tree;
     particle p = particles[0];
     struct TreeNode root = {0, 0, MIN_X, MIN_Y, MAX_X, MAX_Y, true, p.px, p.py, p.mass, 0};
     tree.insert(make_pair(0, root));
+    //print_particle(particles[0]);
+    //printf("Particle count %lu inside\n",particles.size());
     for (int i = 1; i < n_val; i++){
+        //print_particle(particles[i]);
         insert_node(tree, particles, i, 0);
     }
-    /*printf("tree constructed!\n");
-    for(auto const &pair : tree){
+    //printf("tree constructed!\n");
+    /*for(auto const &pair : tree){
         print_node(pair.second);
     }*/
 }
 
-void insert_node(unordered_map<uint64_t, struct TreeNode>& tree, vector<particle> particles, int index,  uint64_t key){
-    
+void insert_node(unordered_map<uint64_t, struct TreeNode>& tree, const vector<particle>& particles, int index,  uint64_t key){
+    //printf("inserting index %d\n", index);
     if (particles[index].mass == -1){
         return;
     }
@@ -109,6 +112,7 @@ tuple<uint64_t, int> find_child(unordered_map<uint64_t, struct TreeNode>& tree, 
             if (tree.find(child_key) == tree.end()){
                 struct TreeNode child = {layer, child_index, minX, minY, maxX, maxY, true, p.px, p.py, p.mass, p.index};
                 tree.emplace(child_key, child);
+                //printf("new child!\n");
                 //print_node(tree.at(child_key));
                 return make_tuple(child_key, -1);
             }else{
@@ -118,7 +122,7 @@ tuple<uint64_t, int> find_child(unordered_map<uint64_t, struct TreeNode>& tree, 
         }
         
     } 
-    print_node(node);
+    //print_node(node);
     return make_tuple(0, -2);    
         
     
@@ -127,6 +131,10 @@ tuple<uint64_t, int> find_child(unordered_map<uint64_t, struct TreeNode>& tree, 
 void print_node(struct TreeNode node){
     printf("layer %d; index_in_layer %d, minX %f; minY %f; maxX %f; maxY %f; isExtern %d; cordX %f; cordY %f; mass %f; index %d \n",
     node.layer, node.index_in_layer, node.minX, node.minY, node.maxX, node.maxY, node.isExternal,  node.cordX, node.cordY, node.mass, node.index);
+}
+
+void print_particle(struct particle p){
+    printf("particle index %d, px= %f, py = %f, mass= %f, vx = %f, vy = %f\n", p.index, p.px, p.py, p.mass, p.vx, p.vy);
 }
 
 void new_position(unordered_map<uint64_t, struct TreeNode>& tree, vector<particle>& particles, int n_val, double threshold, double dt){
@@ -148,13 +156,17 @@ void new_position(unordered_map<uint64_t, struct TreeNode>& tree, vector<particl
                     double d = 0.0;
                     if (j == i) {lfx = 0.0; lfy = 0.0;}
                     else { 
-                        //double dx = position[j].first - position[i].first;
-                        //double dy = position[j].second - position[i].second;
-                        d = sqrt((position[j].first - position[i].first)*(position[j].first - position[i].first) + (position[j].second - position[i].second)*(position[j].second - position[i].second));                
-                        d = (d < rlimit) ? rlimit : d;
-                        
-                        lfx = G * mass[i] * mass[j] * (position[j].first - position[i].first)/(d*d*d);
-                        lfy = G * mass[i] * mass[j] * (position[j].second - position[i].second)/(d*d*d);
+                        double dx = position[j].first - position[i].first;
+                        double dy = position[j].second - position[i].second;
+                        d = sqrt(dx*dx+dy*dy);                
+                        //d = (d < rlimit) ? rlimit : d;
+                        if (d < rlimit){
+                            d = rlimit;
+                            dx = rlimit / d * dx;
+                            dy = rlimit / d * dy;
+                        }
+                        lfx = G * mass[i] * mass[j] * dx/(d*d*d);
+                        lfy = G * mass[i] * mass[j] * dy/(d*d*d);
                         fx += lfx;
                         fy += lfy;
                     }
@@ -181,7 +193,7 @@ void new_position(unordered_map<uint64_t, struct TreeNode>& tree, vector<particl
             new_mass[i] = mass[i];
         }
     #endif
-    printf("Points checked %d\n", points_checked);
+    //printf("Points checked %d\n", points_checked);
 }
 
 void update_position(unordered_map<uint64_t, struct TreeNode>& tree, particle* p, double threshold, double dt){
@@ -214,10 +226,17 @@ tuple<double, double> get_force(unordered_map<uint64_t, struct TreeNode>& tree, 
         } else {
             cordX = node.cordX;
             cordY = node.cordY;
-            d = sqrt((p.px-cordX)*(p.px-cordX)+(p.py-cordY)*(p.py-cordY));
-            d = (d < rlimit) ? rlimit : d;
-            Fx = G * p.mass * node.mass * (cordX - p.px) / (d*d*d);
-            Fy = G * p.mass * node.mass * (cordY - p.py) / (d*d*d);
+            double dx = cordX - p.px;
+            double dy = cordY - p.py ;
+            d = sqrt(dx * dx + dy * dy);
+            //d = (d < rlimit) ? rlimit : d;
+            if (d < rlimit){
+                d = rlimit;
+                dx = rlimit / d * dx;
+                dy = rlimit / d * dy;
+            }
+            Fx = G * p.mass * node.mass * dx / (d*d*d);
+            Fy = G * p.mass * node.mass * dy / (d*d*d);
             points_checked++;
         }
         //printf("%d to %d force %.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f\n", node.index, index, Fx, Fy, d, cordX - particle[0], cordY - particle[1], cordX, particle[0], cordY, particle[1]);
@@ -252,7 +271,7 @@ tuple<double, double> get_force(unordered_map<uint64_t, struct TreeNode>& tree, 
 }
 
 bool check_boundary(particle p){
-    if (p.px >= MIN_X && p.px <= MAX_X && p.py >= MIN_Y && p.py <= MAX_Y)
+    if (p.px > MIN_X && p.px < MAX_X && p.py > MIN_Y && p.py < MAX_Y)
         return true;
     return false;
 }
