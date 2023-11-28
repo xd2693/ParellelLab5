@@ -77,14 +77,14 @@ void run_seq(struct options_t opts, vector<particle>& particles, int n_vals){
     }
 }
 void parallel_parent(struct options_t opts, vector<particle>& particles, int n_vals, int size){
-    /*GLFWwindow* window;
+    GLFWwindow* window;
     float colors[] = {1.0,0.0,0.0}; 
     if(opts.visual){       
         int result = draw_init(&window);        
         if (result<0){
             printf("fail to init window\n");
         }
-    }*/
+    }
 
     for (int i = 0; i< opts.n_steps; i++){
         int nCount = 0;
@@ -93,7 +93,9 @@ void parallel_parent(struct options_t opts, vector<particle>& particles, int n_v
             //printf("In process %d ", 0);
             //print_particle(particles[i]);
         }
-        /*if(opts.visual){
+        unordered_map<uint64_t, struct TreeNode> tree;
+        tree_construct(tree, particles, n_vals);
+        if(opts.visual){
             glClear( GL_COLOR_BUFFER_BIT );
             for (auto const &pair : tree){
                 drawOctreeBounds2D(pair.second);
@@ -102,7 +104,7 @@ void parallel_parent(struct options_t opts, vector<particle>& particles, int n_v
                 drawParticle2D(2*particles[j].px/4-1,2*particles[j].py/4-1, 0.008, colors);       
             }
             glfwSwapBuffers(window);
-        }*/
+        }
         while(nCount < n_vals){
             int flag;
             MPI_Status status;
@@ -120,17 +122,18 @@ void parallel_parent(struct options_t opts, vector<particle>& particles, int n_v
         }
         
     }
-    /*while(opts.visual && !glfwWindowShouldClose(window) )
+    while(opts.visual && !glfwWindowShouldClose(window) )
     {
         glfwPollEvents();
         glfwSwapBuffers(window);
-    }*/
+    }
 }
 void paralle_child(struct options_t opts, vector<particle>& particles, int n_vals, int size, int rank){
     int workload = n_vals / (size - 1);
     int remain = n_vals % (size - 1);
 
     int start, end;
+    int n_count = 0; // number of particles within the boundary
     if (rank > remain){
         start = (workload + 1) * remain + workload * (rank - remain - 1);
         end = start + workload - 1;
@@ -140,7 +143,7 @@ void paralle_child(struct options_t opts, vector<particle>& particles, int n_val
         end = start + workload;
         workload += 1;
     }
-    
+    double start_time, tree_time, end_time;
     for (int i = 0; i< opts.n_steps; i++){
         
         unordered_map<uint64_t, struct TreeNode> tree;
@@ -151,8 +154,13 @@ void paralle_child(struct options_t opts, vector<particle>& particles, int n_val
             
             //print_particle(p);
             particles[p.index] = p;
+            if (p.mass > 0){
+                n_count ++;
+            }
         }
+        start_time = MPI_Wtime();
         tree_construct(tree, particles, n_vals);
+        tree_time = MPI_Wtime();
         //for (int j = 0; j < n_vals; j++)
         //    print_particle(particles[j]);
         //printf("step %d process %d tree constructed! %lu count\n", i, rank, particles.size());
@@ -169,7 +177,10 @@ void paralle_child(struct options_t opts, vector<particle>& particles, int n_val
             //print_particle(particles[j]);
             nCount++;
         }
+        end_time = MPI_Wtime();
         MPI_Waitall(workload, reqs, status);
+        
+        printf("Child %d tree %f step time %f\n", rank, tree_time-start_time, end_time - start_time);
     }
 }
 
