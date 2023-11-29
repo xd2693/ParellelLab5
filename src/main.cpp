@@ -215,8 +215,8 @@ void paralle_child(struct options_t opts, vector<particle>& particles, int n_val
             
         }
         printf("workload=%d,process %d, start = %d, end = %d\n", workload, rank, start, end);
-        MPI_Request reqs[end - start + 1];////vector
-        MPI_Status status[end - start + 1];
+        MPI_Request* reqs = new MPI_Request[end - start + 1];////vector
+        MPI_Status* status = new MPI_Status[end - start + 1];
         for(int j = start; j <= end; j++){
             if (particles[j].mass > 0){
                 particles[j].weight = 0;
@@ -230,7 +230,8 @@ void paralle_child(struct options_t opts, vector<particle>& particles, int n_val
         }
         end_time = MPI_Wtime();
         MPI_Waitall(end - start + 1, reqs, status);
-        
+        delete[] reqs;
+        delete[] status;
         printf("Child %d tree %f step time %f\n", rank, tree_time-start_time, end_time - start_time);
     }
 }
