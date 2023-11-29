@@ -14,6 +14,7 @@ using namespace std;
 #define MAX_Y       4
 #define G           0.0001
 #define rlimit      0.03
+#define opt         false
 
 #ifdef DEBUG
     extern vector<pair<double, double>> force;
@@ -32,6 +33,7 @@ struct particle{
     double mass;
     double vx;
     double vy;
+    int weight;
 };
 
 struct TreeNode {
@@ -48,9 +50,9 @@ struct TreeNode {
     int index;
 };
 
-void tree_construct(unordered_map<uint64_t, struct TreeNode>& tree, const vector<particle>& particles, int n_val);
+void tree_construct(unordered_map<uint64_t, struct TreeNode>& tree, vector<particle>& particles, int n_val);
 
-void insert_node(unordered_map<uint64_t, struct TreeNode>& tree, const vector<particle>& particles, int index, uint64_t key);
+void insert_node(unordered_map<uint64_t, struct TreeNode>& tree, vector<particle>& particles, int index, uint64_t key);
 
 tuple<uint64_t, int> find_child(unordered_map<uint64_t, struct TreeNode>& tree, particle p, uint64_t key);
 
@@ -60,9 +62,9 @@ void print_particle(struct particle p);
 
 void new_position(unordered_map<uint64_t, struct TreeNode>& tree, vector<particle>& particles, int n_val, double threshold, double dt);
 
-void update_position(unordered_map<uint64_t, struct TreeNode>& tree, particle* p, double threshold, double dt);
+void update_position(unordered_map<uint64_t, struct TreeNode>& tree, particle& p, double threshold, double dt);
 
-tuple<double, double> get_force(unordered_map<uint64_t, struct TreeNode>& tree, particle p, uint64_t key, double threshold);
+tuple<double, double> get_force(unordered_map<uint64_t, struct TreeNode>& tree, particle& p, uint64_t key, double threshold);
 
 bool check_boundary(particle p);
 

@@ -1,4 +1,4 @@
-CC = mpicxx -std=c++11
+CC = mpicxx
 SRCS = ./src/*.cpp
 INC = -I ./src
 OPTS = -std=c++17 -Wall -Werror -lpthread -O3

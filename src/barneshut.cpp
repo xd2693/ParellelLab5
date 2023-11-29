@@ -3,25 +3,33 @@ using namespace std;
 
 static int points_checked;
 
-void tree_construct(unordered_map<uint64_t, struct TreeNode>& tree, const vector<particle>& particles, int n_val){
+void tree_construct(unordered_map<uint64_t, struct TreeNode>& tree, vector<particle>& particles, int n_val){
     //unordered_map<int, struct TreeNode> tree;
     particle p = particles[0];
+    //uint64_t total_weight = 1;
     struct TreeNode root = {0, 0, MIN_X, MIN_Y, MAX_X, MAX_Y, true, p.px, p.py, p.mass, 0};
     tree.insert(make_pair(0, root));
     //print_particle(particles[0]);
     //printf("Particle count %lu inside\n",particles.size());
     for (int i = 1; i < n_val; i++){
-        //print_particle(particles[i]);
+        
         insert_node(tree, particles, i, 0);
+        //print_particle(particles[i]);
+        //printf("total_weight = %lld\n", (long long)total_weight);
     }
-    //printf("tree constructed!\n");
-    /*for(auto const &pair : tree){
+    //printf("tree constructed! total_weight = %lld\n",(long long)total_weight);
+    /*for (auto &p : particles){
+        print_particle(p);
+    }
+    for(auto const &pair : tree){
         print_node(pair.second);
     }*/
+    
 }
 
-void insert_node(unordered_map<uint64_t, struct TreeNode>& tree, const vector<particle>& particles, int index,  uint64_t key){
+void insert_node(unordered_map<uint64_t, struct TreeNode>& tree, vector<particle>& particles, int index,  uint64_t key){
     //printf("inserting index %d\n", index);
+    //printf("inserting total_weight = %lld\n", (long long)total_weight);
     if (particles[index].mass == -1){
         return;
     }
@@ -39,6 +47,7 @@ void insert_node(unordered_map<uint64_t, struct TreeNode>& tree, const vector<pa
         node->cordY = 0;
         node->mass = 0;
         node->index = 0;
+        //total_weight -= particles[old_index].weight;
         insert_node(tree, particles, old_index, key);
         insert_node(tree, particles, index, key);
         return;
@@ -52,9 +61,12 @@ void insert_node(unordered_map<uint64_t, struct TreeNode>& tree, const vector<pa
         uint64_t child_key;
         int re;
         tie(child_key , re) = find_child(tree, particles[index], key);
+        //particles[index].weight = particles[index].weight + 1;
+        
         //printf("child key %lld ",(long long)child_key);
         if (re == -1){
             //printf("new child!\n");
+            //total_weight += particles[index].weight;
             return;
         }else if(re < -1){
             printf("find child error! index = %d\n", index);
@@ -134,7 +146,7 @@ void print_node(struct TreeNode node){
 }
 
 void print_particle(struct particle p){
-    printf("particle index %d, px= %f, py = %f, mass= %f, vx = %f, vy = %f\n", p.index, p.px, p.py, p.mass, p.vx, p.vy);
+    printf("particle index %d, px= %f, py = %f, mass= %f, vx = %f, vy = %f, weight = %lld\n", p.index, p.px, p.py, p.mass, p.vx, p.vy, (long long)p.weight);
 }
 
 void new_position(unordered_map<uint64_t, struct TreeNode>& tree, vector<particle>& particles, int n_val, double threshold, double dt){
@@ -145,7 +157,7 @@ void new_position(unordered_map<uint64_t, struct TreeNode>& tree, vector<particl
         if (particles[i].mass < 0)
             continue;
         //printf("old position index %d, px = %f py = %f %f %f\n", particles[i].index, particles[i].px, particles[i].py, particles[i].vx, particles[i].vy);
-        update_position(tree, &particles[i], threshold, dt);
+        update_position(tree, particles[i], threshold, dt);
         //printf("new position index %d, px = %f py = %f %f %f\n", particles[i].index, particles[i].px, particles[i].py, particles[i].vx, particles[i].vy);
         #ifdef DEBUG
         double ax, ay;
@@ -196,33 +208,35 @@ void new_position(unordered_map<uint64_t, struct TreeNode>& tree, vector<particl
     //printf("Points checked %d\n", points_checked);
 }
 
-void update_position(unordered_map<uint64_t, struct TreeNode>& tree, particle* p, double threshold, double dt){
+void update_position(unordered_map<uint64_t, struct TreeNode>& tree, particle& p, double threshold, double dt){
     double Fx, Fy, ax = 0.0, ay = 0.0;
-    tie(Fx, Fy) = get_force(tree, *p, 0, threshold);
-    ax = Fx / p->mass;
-    ay = Fy / p->mass;
-    p->vx += ax * dt;
-    p->vy += ay * dt;
-    p->px += p->vx * dt + 0.5 * ax * dt * dt;
-    p->py += p->vy * dt + 0.5 * ay * dt * dt;
-    p->mass = check_boundary(*p) ? p->mass : -1;
+    tie(Fx, Fy) = get_force(tree, p, 0, threshold);
+    ax = Fx / p.mass;
+    ay = Fy / p.mass;
+    p.vx += ax * dt;
+    p.vy += ay * dt;
+    p.px += p.vx * dt + 0.5 * ax * dt * dt;
+    p.py += p.vy * dt + 0.5 * ay * dt * dt;
+    p.mass = check_boundary(p) ? p.mass : -1;
 #ifdef DEBUG
     force[p->index] = make_pair(Fx, Fy);
 #endif
     //printf("New point %f %f %f %f %f\n", p->mass, p->px, p->py, p->vx, p->vy);
 }
 
-tuple<double, double> get_force(unordered_map<uint64_t, struct TreeNode>& tree, particle p, uint64_t key, double threshold){
+tuple<double, double> get_force(unordered_map<uint64_t, struct TreeNode>& tree, particle& p, uint64_t key, double threshold){
     double cordX = 0.0, cordY = 0.0, d, Fx = 0.0, Fy = 0.0;
     if (tree.find(key) == tree.end()){
         return make_pair(0, 0);
     }
     TreeNode node = tree[key];
+    p.weight ++;
     if (node.isExternal){
         if (p.index == node.index)
         {
             Fx = 0;
             Fy = 0;
+            p.weight --;
         } else {
             cordX = node.cordX;
             cordY = node.cordY;

@@ -87,13 +87,14 @@ void parallel_parent(struct options_t opts, vector<particle>& particles, int n_v
     }
 
     for (int i = 0; i< opts.n_steps; i++){
-        int nCount = 0;
+        int nCount = 0;// number of particles received from child
         for (int i = 0; i < n_vals; i++){
             MPI_Bcast( &particles[i] , sizeof(struct particle) , MPI_BYTE, 0 , MPI_COMM_WORLD);
             //printf("In process %d ", 0);
             //print_particle(particles[i]);
         }
         unordered_map<uint64_t, struct TreeNode> tree;
+        //uint64_t total_weight = 0;
         tree_construct(tree, particles, n_vals);
         if(opts.visual){
             glClear( GL_COLOR_BUFFER_BIT );
@@ -112,9 +113,13 @@ void parallel_parent(struct options_t opts, vector<particle>& particles, int n_v
             MPI_Iprobe( MPI_ANY_SOURCE , 1 , MPI_COMM_WORLD , &flag , &status);
             if (flag){
                 MPI_Recv(&p, sizeof(struct particle), MPI_BYTE, status.MPI_SOURCE, 1, MPI_COMM_WORLD, &status);
+                //p.weight = 1;
+                if (p.mass < 0)
+                    p.weight = 0;
                 particles[p.index] = p;
+                
                 nCount ++;
-                //printf("in process 0, particle received\n");
+                //printf("in process 0, %d particle received\n", nCount);
                 //print_particle(p);
             }else{
                 this_thread::sleep_for(chrono::milliseconds(10));
@@ -129,56 +134,102 @@ void parallel_parent(struct options_t opts, vector<particle>& particles, int n_v
     }
 }
 void paralle_child(struct options_t opts, vector<particle>& particles, int n_vals, int size, int rank){
-    int workload = n_vals / (size - 1);
-    int remain = n_vals % (size - 1);
+    
 
-    int start, end;
-    int n_count = 0; // number of particles within the boundary
-    if (rank > remain){
-        start = (workload + 1) * remain + workload * (rank - remain - 1);
-        end = start + workload - 1;
-        
-    }else{
-        start = (workload + 1) * (rank - 1);
-        end = start + workload;
-        workload += 1;
-    }
+    
+    
     double start_time, tree_time, end_time;
     for (int i = 0; i< opts.n_steps; i++){
+        int total_weight = 0;
+        int start = -1, end = 0;
         
+        int workload = 0;
+        int remain = 0;
         unordered_map<uint64_t, struct TreeNode> tree;
         //printf("In process %d bcast", rank);
         for(int j = 0; j< n_vals; j++){
             particle p;
             MPI_Bcast( &p , sizeof(struct particle) , MPI_BYTE, 0 , MPI_COMM_WORLD);
-            
+            total_weight += p.weight;
             //print_particle(p);
             particles[p.index] = p;
-            if (p.mass > 0){
-                n_count ++;
-            }
+            
         }
         start_time = MPI_Wtime();
+        
         tree_construct(tree, particles, n_vals);
         tree_time = MPI_Wtime();
-        //for (int j = 0; j < n_vals; j++)
-        //    print_particle(particles[j]);
-        //printf("step %d process %d tree constructed! %lu count\n", i, rank, particles.size());
+        int temp=0;
+        for (int j = 0; j < n_vals; j++){
+            temp+=particles[j].weight;
+            //print_particle(particles[j]);
+        }
+            
+        //printf("total weight calculated %d, from tree %lld", temp, (long long)total_weight);
         /*for(auto const &pair : tree){
             print_node(pair.second);
         }*/
-        MPI_Request reqs[workload];
-        MPI_Status status[workload];
+        
         int nCount = 0;
+        if (opt){
+            workload = total_weight / (size - 1);
+            int current_weight = 0;
+            vector<int> start_point(size);
+            start_point[0] = 0;
+            int p_id = 1;
+            for(int j = 0; j < n_vals; j++){
+                current_weight += particles[j].weight;
+                if (current_weight >= workload ){
+                    //printf("p_id %d, j %d\n, current_weight %d, weight %lld\n", p_id, j, current_weight,(long long) particles[j].weight);
+                    start_point[p_id] = j + 1;
+
+                    p_id ++;
+                    if (p_id == size-1){
+                        break;
+                    }
+                    current_weight = 0;
+                    
+                }                    
+            }
+            for (; p_id < size ; p_id++){
+                start_point[p_id] = n_vals;
+            }
+            start = start_point[rank - 1];
+        
+            
+            end = start_point[rank]-1;
+            
+        }else{
+            workload = n_vals / (size - 1);
+            //printf("ncount= %d\n", n_count);
+            remain = n_vals % (size - 1);
+            if (rank > remain){
+                start = (workload + 1) * remain + workload * (rank - remain - 1);
+                end = start + workload - 1;
+                
+            }else{
+                start = (workload + 1) * (rank - 1);
+                end = start + workload;
+                //workload += 1;
+            }
+            
+        }
+        printf("workload=%d,process %d, start = %d, end = %d\n", workload, rank, start, end);
+        MPI_Request reqs[end - start + 1];////vector
+        MPI_Status status[end - start + 1];
         for(int j = start; j <= end; j++){
-            update_position(tree, &particles[j], opts.theta, opts.time_step);
+            if (particles[j].mass > 0){
+                particles[j].weight = 0;
+                update_position(tree, particles[j], opts.theta, opts.time_step);
+            }
+                           
             MPI_Isend( &particles[j], sizeof(struct particle) , MPI_BYTE , 0 , 1 , MPI_COMM_WORLD , &reqs[nCount]);
             //printf("in process %d, particle sent\n", rank);
             //print_particle(particles[j]);
             nCount++;
         }
         end_time = MPI_Wtime();
-        MPI_Waitall(workload, reqs, status);
+        MPI_Waitall(end - start + 1, reqs, status);
         
         printf("Child %d tree %f step time %f\n", rank, tree_time-start_time, end_time - start_time);
     }
@@ -203,7 +254,7 @@ int main(int argc, char **argv){
 
         for (int i = 0; i< n_vals; i++){
             memcpy(output_vals[i], input_vals[i], sizeof(double) * 5);
-            particle p = {i, input_vals[i][0],input_vals[i][1],input_vals[i][2],input_vals[i][3],input_vals[i][4]};
+            particle p = {i, input_vals[i][0],input_vals[i][1],input_vals[i][2],input_vals[i][3],input_vals[i][4], 1};
             particles.push_back(p);            
             #ifdef DEBUG
                 position.push_back(pair<double, double>(output_vals[i][0], output_vals[i][1]));
