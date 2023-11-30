@@ -3,6 +3,12 @@ using namespace std;
 
 static int points_checked;
 
+/**
+ * Tree construction function 
+ * Insert every particle into the tree from root
+ * tree: an unordered map representing the tree
+ *  
+ */
 void tree_construct(unordered_map<uint64_t, struct TreeNode>& tree, vector<particle>& particles, int n_val){
     //unordered_map<int, struct TreeNode> tree;
     particle p = particles[0];
@@ -26,7 +32,15 @@ void tree_construct(unordered_map<uint64_t, struct TreeNode>& tree, vector<parti
     }*/
     
 }
-
+/**
+ * Inserting particles into current node
+ * 
+ * If current node is external, retrieve the particle in the node, set node to nonExternal,
+ * reinsert the retrieved particle and the current particle.
+ * If current node is nonExternal, find which the child node that the particle belongs.
+ * If child node existed, reinsert the particle to child node. 
+ * If child node does not exist, create new child node and assign the particle to the child node.
+ */
 void insert_node(unordered_map<uint64_t, struct TreeNode>& tree, vector<particle>& particles, int index,  uint64_t key){
     //printf("inserting index %d\n", index);
     //printf("inserting total_weight = %lld\n", (long long)total_weight);
@@ -78,7 +92,16 @@ void insert_node(unordered_map<uint64_t, struct TreeNode>& tree, vector<particle
         return;
     }
 }
-
+/**
+ * Find the child node of the current node to which the particle belongs 
+ * Create a child node if not existed
+ *  
+ * return tuple<key, result>
+ * key: the key of the child node
+ * result: 0    -child node found
+ *         -1   -new child node created
+ *         -2   error
+ */
 tuple<uint64_t, int> find_child(unordered_map<uint64_t, struct TreeNode>& tree, particle p, uint64_t key){
     double minX=0, minY=0, maxX=0, maxY=0;
     //printf("find child\n");
@@ -148,7 +171,9 @@ void print_node(struct TreeNode node){
 void print_particle(struct particle p){
     printf("particle index %d, px= %f, py = %f, mass= %f, vx = %f, vy = %f, weight = %lld\n", p.index, p.px, p.py, p.mass, p.vx, p.vy, (long long)p.weight);
 }
-
+/**
+ * Function for calculating new position and velocity for all particles  
+ */
 void new_position(unordered_map<uint64_t, struct TreeNode>& tree, vector<particle>& particles, int n_val, double threshold, double dt){
     points_checked = 0;
     for (int i = 0; i < n_val; i++){
@@ -207,7 +232,9 @@ void new_position(unordered_map<uint64_t, struct TreeNode>& tree, vector<particl
     #endif
     //printf("Points checked %d\n", points_checked);
 }
-
+/**
+ * Function for calculating new position and velocity of a given particle 
+ */
 void update_position(unordered_map<uint64_t, struct TreeNode>& tree, particle& p, double threshold, double dt){
     double Fx, Fy, ax = 0.0, ay = 0.0;
     tie(Fx, Fy) = get_force(tree, p, 0, threshold);
@@ -224,6 +251,14 @@ void update_position(unordered_map<uint64_t, struct TreeNode>& tree, particle& p
     //printf("New point %f %f %f %f %f\n", p->mass, p->px, p->py, p->vx, p->vy);
 }
 
+/**
+ * Function of computing forces from the current tree node
+ * If tree node is external, compute and return the forces between two particles
+ * If tree node is non external----
+ *      If l/d<theta, compute forces between the particle and the tree node.
+ *      If not, recursively compute forces between the particle and the child nodes of the current tree node
+ * return tuple<Fx, Fy>
+ */
 tuple<double, double> get_force(unordered_map<uint64_t, struct TreeNode>& tree, particle& p, uint64_t key, double threshold){
     double cordX = 0.0, cordY = 0.0, d, Fx = 0.0, Fy = 0.0;
     if (tree.find(key) == tree.end()){
@@ -283,7 +318,9 @@ tuple<double, double> get_force(unordered_map<uint64_t, struct TreeNode>& tree, 
     }
     return make_tuple(Fx, Fy);
 }
-
+/**
+ * Function of checking if the particle is within boundary
+ */
 bool check_boundary(particle p){
     if (p.px > MIN_X && p.px < MAX_X && p.py > MIN_Y && p.py < MAX_Y)
         return true;

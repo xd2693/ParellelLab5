@@ -12,11 +12,13 @@ void get_opts(int argc,
         std::cout << "\t--steps or -s <num_steps>" << std::endl;
         std::cout << "\t--theta or -t <threshold>" << std::endl;
         std::cout << "\t--timestep or -d <timestep>" << std::endl;
-        std::cout << "\t--visial or -v <visualization>" << std::endl;
+        std::cout << "\t[Optional] --visial or -v" << std::endl;
+        std::cout << "\t[Optional] --optimize or -p" << std::endl;
         exit(0);
     }
 
     opts->visual = false;
+    opts->op = false;
 
     struct option l_opts[] = {
         {"in", required_argument, NULL, 'i'},
@@ -24,11 +26,12 @@ void get_opts(int argc,
         {"n_steps", required_argument, NULL, 's'},
         {"theta", required_argument, NULL, 't'},
         {"timestep", required_argument, NULL, 'd'},
-        {"visial", no_argument, NULL, 'v'}
+        {"visial", no_argument, NULL, 'v'},
+        {"optimize", no_argument, NULL, 'p'}
     };
 
     int ind, c;
-    while ((c = getopt_long(argc, argv, "i:o:s:t:d:v", l_opts, &ind)) != -1)
+    while ((c = getopt_long(argc, argv, "i:o:s:t:d:vp", l_opts, &ind)) != -1)
     {
         switch (c)
         {
@@ -51,6 +54,9 @@ void get_opts(int argc,
             break;
         case 'v':
             opts->visual = true;
+            break;
+        case 'p':
+            opts->op = true;
             break;
         case ':':
             std::cerr << argv[0] << ": option -" << (char)optopt << "requires an argument." << std::endl;

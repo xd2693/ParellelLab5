@@ -6,12 +6,13 @@
 #include <iostream>
 
 struct options_t {
-    char *in_file;
-    char *out_file;
-    int n_steps;
-    double theta;
-    double time_step;
-    bool visual;
+    char *in_file;          //input file path
+    char *out_file;         //output file path
+    int n_steps;            //steps
+    double theta;           //theta
+    double time_step;       //time_step
+    bool visual;            //optional visualization
+    bool op;                //optional optimization
 };
 
 void get_opts(int argc, char **argv, struct options_t *opts);

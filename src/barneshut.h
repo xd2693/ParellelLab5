@@ -14,7 +14,7 @@ using namespace std;
 #define MAX_Y       4
 #define G           0.0001
 #define rlimit      0.03
-#define opt         false
+
 
 #ifdef DEBUG
     extern vector<pair<double, double>> force;
@@ -27,27 +27,27 @@ using namespace std;
 #endif
 
 struct particle{
-    int index;
-    double px;
-    double py;
-    double mass;
-    double vx;
-    double vy;
-    int weight;
+    int index;          //index
+    double px;          //x position
+    double py;          //y position    
+    double mass;        //mass, -1 if outof boundary
+    double vx;          //x velocity
+    double vy;          //y velocity
+    int weight;         //weight for doing optimization
 };
 
 struct TreeNode {
-    uint16_t layer; //From 0
-    uint32_t index_in_layer;
-    double minX;
+    uint16_t layer;             //layer in the tree, starting from 0
+    uint32_t index_in_layer;    //index within the layer. starting from 0
+    double minX;                //boundary of the quadrant
     double minY;
     double maxX;
     double maxY;
-    bool isExternal;
-    double cordX;
-    double cordY;
-    double mass;
-    int index;
+    bool isExternal;            //true - if the node is external
+    double cordX;               //x position of the particle if isExternal
+    double cordY;               //y position
+    double mass;                //mass
+    int index;                  //index of the particle
 };
 
 void tree_construct(unordered_map<uint64_t, struct TreeNode>& tree, vector<particle>& particles, int n_val);

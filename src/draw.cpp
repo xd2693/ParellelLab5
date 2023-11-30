@@ -1,6 +1,8 @@
 #include<draw.h>
 #include <stdio.h>
-
+/**
+ * init window 
+ */
 int draw_init(GLFWwindow** window){
 /* OpenGL window dims */
     int width=600, height=600;
@@ -25,7 +27,9 @@ int draw_init(GLFWwindow** window){
     glfwSetInputMode(*window, GLFW_STICKY_KEYS, GL_TRUE);
     return 0;
 }
-
+/**
+ * Function of drawing the particles 
+ */
 void drawParticle2D(double x_window, double y_window,
            double radius,
            float *colors) {
@@ -41,6 +45,10 @@ void drawParticle2D(double x_window, double y_window,
     }
     glEnd();
 }
+
+/**
+ * Function of drawing the tree node
+ */
 void drawOctreeBounds2D(TreeNode node) {
     
     

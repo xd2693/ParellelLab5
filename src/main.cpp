@@ -20,7 +20,9 @@ using namespace std;
     vector<double> mass;
     vector<double> new_mass;
 #endif
-
+/** 
+ * Sequential version
+ */
 void run_seq(struct options_t opts, vector<particle>& particles, int n_vals){
     GLFWwindow* window;
     float colors[] = {1.0,0.0,0.0}; 
@@ -76,6 +78,15 @@ void run_seq(struct options_t opts, vector<particle>& particles, int n_vals){
         glfwSwapBuffers(window);
     }
 }
+/**
+ * Main process function
+ * 
+ * Broadcast points to child processes
+ * Build the tree 
+ * Draw tree and particles if -v is provided
+ * Loop for receiving points back from child processes 
+ * and update points position and velocity 
+ */
 void parallel_parent(struct options_t opts, vector<particle>& particles, int n_vals, int size){
     GLFWwindow* window;
     float colors[] = {1.0,0.0,0.0}; 
@@ -122,7 +133,8 @@ void parallel_parent(struct options_t opts, vector<particle>& particles, int n_v
                 //printf("in process 0, %d particle received\n", nCount);
                 //print_particle(p);
             }else{
-                this_thread::sleep_for(chrono::milliseconds(10));
+                if(nCount == 0)
+                    this_thread::sleep_for(chrono::milliseconds(10));
             }
         }
         
@@ -133,12 +145,18 @@ void parallel_parent(struct options_t opts, vector<particle>& particles, int n_v
         glfwSwapBuffers(window);
     }
 }
+/**
+ * Child process function 
+ * 
+ * Receive broadcast from parent process 
+ * Build the tree 
+ * Determin workload for each child process
+ * Compute new position and velocity
+ * Send new points to parent process
+ */
 void paralle_child(struct options_t opts, vector<particle>& particles, int n_vals, int size, int rank){
-    
-
-    
-    
-    double start_time, tree_time, end_time;
+       
+    //double start_time, tree_time, end_time;
     for (int i = 0; i< opts.n_steps; i++){
         int total_weight = 0;
         int start = -1, end = 0;
@@ -155,10 +173,10 @@ void paralle_child(struct options_t opts, vector<particle>& particles, int n_val
             particles[p.index] = p;
             
         }
-        start_time = MPI_Wtime();
+        //start_time = MPI_Wtime();
         
         tree_construct(tree, particles, n_vals);
-        tree_time = MPI_Wtime();
+        //tree_time = MPI_Wtime();
         int temp=0;
         for (int j = 0; j < n_vals; j++){
             temp+=particles[j].weight;
@@ -171,7 +189,7 @@ void paralle_child(struct options_t opts, vector<particle>& particles, int n_val
         }*/
         
         int nCount = 0;
-        if (opt){
+        if (opts.op){
             workload = total_weight / (size - 1);
             int current_weight = 0;
             vector<int> start_point(size);
@@ -194,9 +212,7 @@ void paralle_child(struct options_t opts, vector<particle>& particles, int n_val
             for (; p_id < size ; p_id++){
                 start_point[p_id] = n_vals;
             }
-            start = start_point[rank - 1];
-        
-            
+            start = start_point[rank - 1];           
             end = start_point[rank]-1;
             
         }else{
@@ -214,7 +230,7 @@ void paralle_child(struct options_t opts, vector<particle>& particles, int n_val
             }
             
         }
-        printf("workload=%d,process %d, start = %d, end = %d\n", workload, rank, start, end);
+        //printf("workload=%d,process %d, start = %d, end = %d\n", workload, rank, start, end);
         MPI_Request* reqs = new MPI_Request[end - start + 1];////vector
         MPI_Status* status = new MPI_Status[end - start + 1];
         for(int j = start; j <= end; j++){
@@ -228,14 +244,20 @@ void paralle_child(struct options_t opts, vector<particle>& particles, int n_val
             //print_particle(particles[j]);
             nCount++;
         }
-        end_time = MPI_Wtime();
+        //end_time = MPI_Wtime();
         MPI_Waitall(end - start + 1, reqs, status);
         delete[] reqs;
         delete[] status;
-        printf("Child %d tree %f step time %f\n", rank, tree_time-start_time, end_time - start_time);
+        //printf("Child %d tree %f step time %f\n", rank, tree_time-start_time, end_time - start_time);
     }
 }
-
+/**
+ * Process 0 reads in args and input file 
+ * 
+ * If MPI size == 1, run sequential function 
+ * If MPI size > 1, process 0 broadcast number of particles and run parallel_parent, others run parallel_child 
+ * Process 0 writes output to file 
+ */
 int main(int argc, char **argv){
     int size, rank;
     MPI_Init(&argc, &argv);
@@ -305,10 +327,7 @@ int main(int argc, char **argv){
     printf("I am debugger %d\n", DEBUG);
 #endif
     
-    
-    
-    
-    
+   
     MPI_Finalize();
     return 0;
 }
